@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'models/user_profile.dart';
@@ -15,7 +14,8 @@ void main() async {
   if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(AgeGroupAdapter());
   if (!Hive.isAdapterRegistered(2)) Hive.registerAdapter(UserProfileAdapter());
   if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(AfResultAdapter());
-  if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(SessionRecordAdapter());
+  if (!Hive.isAdapterRegistered(4))
+    Hive.registerAdapter(SessionRecordAdapter());
 
   runApp(const MyApp());
 }
