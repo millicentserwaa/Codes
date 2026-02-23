@@ -11,31 +11,33 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # specify explicit path_provider so the Android plugin is updated
+  path_provider: 2.1.5
   # BLE
-  flutter_blue_plus: ^1.31.0
+  flutter_blue_plus: ^2.1.1
 
   # Local storage (no build_runner needed — adapters written manually)
   hive: ^2.2.3
   hive_flutter: ^1.1.0
 
   # Charts
-  fl_chart: ^0.68.0
+  fl_chart: ^1.1.1
 
   # State management
   provider: ^6.1.2
 
   # UI
   cupertino_icons: ^1.0.6
-  google_fonts: ^6.2.1
-  intl: ^0.19.0
-  permission_handler: ^11.3.1
+  google_fonts: ^8.0.2
+  intl: ^0.20.2
+  permission_handler: ^12.0.1
   crypto: ^3.0.3
-  flutter_tts: ^3.5.0
+  flutter_tts: ^4.2.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true

@@ -144,8 +144,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     keyboardType: TextInputType.emailAddress,
                     autocorrect: false,
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty)
+                      if (v == null || v.trim().isEmpty) {
                         return 'Email is required';
+                      }
                       if (!v.contains('@')) return 'Enter a valid email';
                       return null;
                     },

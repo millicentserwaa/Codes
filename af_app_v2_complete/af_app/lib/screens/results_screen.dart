@@ -173,7 +173,7 @@ class ResultsScreen extends StatelessWidget {
                       ?.copyWith(fontSize: 11, color: AppTheme.textSecondary),
                 ),
               ),
-              ReadAloudIcon(
+              const ReadAloudIcon(
                 text:
                     'This device is a screening tool only. Results are not a clinical diagnosis. Always consult a qualified healthcare professional before making any medical decisions.',
               ),

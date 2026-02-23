@@ -552,7 +552,7 @@ class _SourceNote extends StatelessWidget {
                       ?.copyWith(fontSize: 10, color: AppTheme.textSecondary),
                 ),
               ),
-              ReadAloudIcon(
+              const ReadAloudIcon(
                 text:
                     'All tips are based on WHO, ESC, JNC 8, ADA, and Ghana Standard Treatment Guidelines. '
                     'This app does not replace professional medical advice.',
