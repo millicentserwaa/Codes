@@ -1,4 +1,6 @@
+
 import 'package:hive/hive.dart';
+import '../models/stroke_models.dart'; 
 
 // ── Enums ──────────────────────────────────────────────────────
 
@@ -25,38 +27,27 @@ extension AfResultExtension on AfResult {
   }
 }
 
-enum StrokeRisk { low, moderate, high }
-
-extension StrokeRiskExtension on StrokeRisk {
-  String get label {
-    switch (this) {
-      case StrokeRisk.low:      return 'Low Risk';
-      case StrokeRisk.moderate: return 'Moderate Risk';
-      case StrokeRisk.high:     return 'High Risk';
-    }
-  }
-
-  String get advice {
-    switch (this) {
-      case StrokeRisk.low:
-        return 'Your stroke risk score is low. Continue regular monitoring and maintain a healthy lifestyle.';
-      case StrokeRisk.moderate:
-        return 'Your score indicates moderate stroke risk. Discuss your results with a healthcare provider soon.';
-      case StrokeRisk.high:
-        return 'Your score indicates elevated stroke risk. Please seek medical attention and share these results with your doctor.';
-    }
-  }
-}
-
 // ── Measurement model ──────────────────────────────────────────
 
 class Measurement extends HiveObject {
   DateTime timestamp;
+
+  // Legacy fields — kept for Hive backward compatibility
   double cv;
   double rmssd;
-  double pnn50;
+
+  // Core HRV fields
+  double pnn50;    // same as pRR50
   double meanRR;
   double heartRate;
+
+  // New RF v5.0 fields
+  double pRR20;
+  double pRR30;
+  double sdsd;
+  double tpr;
+
+  // Classification results
   int afResultIndex;
   int afScore;
   int strokeScore;
@@ -75,13 +66,19 @@ class Measurement extends HiveObject {
     required this.strokeScore,
     required this.strokeRiskIndex,
     this.systolicBP,
+    this.pRR20 = 0.0,
+    this.pRR30 = 0.0,
+    this.sdsd  = 0.0,
+    this.tpr   = 0.0,
   });
 
-  AfResult get afResult => AfResult.values[afResultIndex];
+  // Convenience getters
+  AfResult   get afResult   => AfResult.values[afResultIndex];
   StrokeRisk get strokeRisk => StrokeRisk.values[strokeRiskIndex];
+  double     get pRR50      => pnn50; // alias
 }
 
-// ── Manual Hive adapter (no build_runner needed) ───────────────
+// ── Manual Hive adapter ────────────────────────────────────────
 
 class MeasurementAdapter extends TypeAdapter<Measurement> {
   @override
@@ -89,18 +86,43 @@ class MeasurementAdapter extends TypeAdapter<Measurement> {
 
   @override
   Measurement read(BinaryReader reader) {
+    final timestamp       = DateTime.fromMillisecondsSinceEpoch(reader.readInt());
+    final cv              = reader.readDouble();
+    final rmssd           = reader.readDouble();
+    final pnn50           = reader.readDouble();
+    final meanRR          = reader.readDouble();
+    final heartRate       = reader.readDouble();
+    final afResultIndex   = reader.readInt();
+    final afScore         = reader.readInt();
+    final strokeScore     = reader.readInt();
+    final strokeRiskIndex = reader.readInt();
+    final systolicBP      = reader.readBool() ? reader.readInt() : null;
+
+    // New v5.0 fields — try/catch so old stored records still load
+    double pRR20 = 0.0, pRR30 = 0.0, sdsd = 0.0, tpr = 0.0;
+    try {
+      pRR20 = reader.readDouble();
+      pRR30 = reader.readDouble();
+      sdsd  = reader.readDouble();
+      tpr   = reader.readDouble();
+    } catch (_) {}
+
     return Measurement(
-      timestamp:       DateTime.fromMillisecondsSinceEpoch(reader.readInt()),
-      cv:              reader.readDouble(),
-      rmssd:           reader.readDouble(),
-      pnn50:           reader.readDouble(),
-      meanRR:          reader.readDouble(),
-      heartRate:       reader.readDouble(),
-      afResultIndex:   reader.readInt(),
-      afScore:         reader.readInt(),
-      strokeScore:     reader.readInt(),
-      strokeRiskIndex: reader.readInt(),
-      systolicBP:      reader.readBool() ? reader.readInt() : null,
+      timestamp:       timestamp,
+      cv:              cv,
+      rmssd:           rmssd,
+      pnn50:           pnn50,
+      meanRR:          meanRR,
+      heartRate:       heartRate,
+      afResultIndex:   afResultIndex,
+      afScore:         afScore,
+      strokeScore:     strokeScore,
+      strokeRiskIndex: strokeRiskIndex,
+      systolicBP:      systolicBP,
+      pRR20:           pRR20,
+      pRR30:           pRR30,
+      sdsd:            sdsd,
+      tpr:             tpr,
     );
   }
 
@@ -118,5 +140,10 @@ class MeasurementAdapter extends TypeAdapter<Measurement> {
     writer.writeInt(obj.strokeRiskIndex);
     writer.writeBool(obj.systolicBP != null);
     if (obj.systolicBP != null) writer.writeInt(obj.systolicBP!);
+    // v5.0 fields
+    writer.writeDouble(obj.pRR20);
+    writer.writeDouble(obj.pRR30);
+    writer.writeDouble(obj.sdsd);
+    writer.writeDouble(obj.tpr);
   }
 }

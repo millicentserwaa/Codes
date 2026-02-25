@@ -75,7 +75,7 @@ class AfScreenApp extends StatelessWidget {
   }
 }
 
-// ── Main shell with bottom nav ─────────────────────────────────
+// Main shell with bottom nav 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 

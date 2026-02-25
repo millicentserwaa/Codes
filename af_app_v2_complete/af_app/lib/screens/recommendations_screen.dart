@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/measurement.dart';
 import '../models/patient_profile.dart';
 import '../services/stroke_algorithm.dart';
+import '../models/stroke_models.dart';
+import 'dart:math' as math;
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 import '../services/tts_service.dart';
@@ -23,7 +25,9 @@ class RecommendationsScreen extends StatelessWidget {
     final recs = StrokeAlgorithm.getRecommendations(
       result: scoreResult,
       profile: profile,
-      afResult: measurement.afResult,
+      afResultIndex: measurement.afResultIndex,
+      pRR50: measurement.pnn50,
+      sdsd: measurement.rmssd / math.sqrt(2),
     );
 
     return Scaffold(

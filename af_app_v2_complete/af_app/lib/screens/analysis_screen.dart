@@ -3,7 +3,9 @@ import '../models/measurement.dart';
 import '../models/patient_profile.dart';
 import '../services/storage_service.dart';
 import '../services/stroke_algorithm.dart';
+import '../models/stroke_models.dart';
 import '../services/tts_service.dart';
+import 'dart:math' as math;
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 
@@ -31,11 +33,14 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     final p = StorageService.getProfile();
     StrokeScoreResult? stroke;
     if (m != null && p != null) {
+      // algorithm signature changed – we now supply pRR50 and SDSD
+      // we map existing HRV metrics: use pnn50 as pRR50 and rmssd as a proxy for SDSD
       stroke = StrokeAlgorithm.calculate(
         profile: p,
-        cv: m.cv,
-        rmssd: m.rmssd,
-        afResult: m.afResult,
+        pRR50: m.pnn50,
+        // sdsd not stored directly; derive from rmssd using relationship SDSD = RMSSD / √2
+        sdsd: m.rmssd / math.sqrt(2),
+        afResultIndex: m.afResultIndex,
         systolicBP: m.systolicBP,
       );
     }
@@ -361,7 +366,7 @@ class _StrokeScoreCard extends StatelessWidget {
     switch (result.risk) {
       case StrokeRisk.low:
         return AppTheme.riskLow;
-      case StrokeRisk.moderate:
+      case StrokeRisk.lowModerate:
         return AppTheme.riskModerate;
       case StrokeRisk.high:
         return AppTheme.riskHigh;

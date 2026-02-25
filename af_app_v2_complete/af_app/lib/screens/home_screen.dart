@@ -5,6 +5,7 @@ import '../services/ble_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
+import '../models/stroke_models.dart';
 import 'results_screen.dart';
 import 'connect_screen.dart';
 
@@ -49,21 +50,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 elevation: 0,
                 flexibleSpace: FlexibleSpaceBar(
                   titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
-                  title: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('AF Screen',
-                          style: Theme.of(context)
-                              .textTheme
-                              .displayMedium
-                              ?.copyWith(fontSize: 22)),
-                      Text('Cardiac Monitoring',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(fontSize: 12)),
-                    ],
+                  title: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('AF Screen',
+                            style: Theme.of(context)
+                                .textTheme
+                                .displayMedium
+                                ?.copyWith(fontSize: 22)),
+                        Text('Cardiac Monitoring',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(fontSize: 12)),
+                      ],
+                    ),
                   ),
                 ),
                 actions: [
@@ -71,19 +76,24 @@ class _HomeScreenState extends State<HomeScreen> {
                   Padding(
                     padding: const EdgeInsets.only(right: 16),
                     child: GestureDetector(
-                      onTap: () => Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => const ConnectScreen())),
+                      onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const ConnectScreen())),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: ble.isConnected
-                              ? AppTheme.secondary.withOpacity(0.1)
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .secondary
+                                  .withOpacity(0.1)
                               : AppTheme.border,
                           borderRadius: BorderRadius.circular(100),
                           border: Border.all(
                             color: ble.isConnected
-                                ? AppTheme.secondary
+                                ? Theme.of(context).colorScheme.secondary
                                 : AppTheme.textSecondary.withOpacity(0.3),
                           ),
                         ),
@@ -95,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               height: 7,
                               decoration: BoxDecoration(
                                 color: ble.isConnected
-                                    ? AppTheme.secondary
+                                    ? Theme.of(context).colorScheme.secondary
                                     : AppTheme.textSecondary,
                                 shape: BoxShape.circle,
                               ),
@@ -107,7 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: ble.isConnected
-                                    ? AppTheme.secondary
+                                    ? Theme.of(context).colorScheme.secondary
                                     : AppTheme.textSecondary,
                               ),
                             ),
@@ -123,7 +133,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.all(20),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-
                     // ── Latest Result Card ────────────────────
                     if (_latest != null)
                       _LatestResultCard(
@@ -131,13 +140,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => ResultsScreen(measurement: _latest!),
+                            builder: (_) =>
+                                ResultsScreen(measurement: _latest!),
                           ),
                         ).then((_) => _load()),
                       )
                     else
                       _NoDataCard(
-                        onConnect: () => Navigator.push(context,
+                        onConnect: () => Navigator.push(
+                            context,
                             MaterialPageRoute(
                                 builder: (_) => const ConnectScreen())),
                       ),
@@ -145,8 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 24),
 
                     // ── 7-Day Summary ─────────────────────────
-                    if (StorageService.measurementCount > 0)
-                      _WeekSummary(),
+                    if (StorageService.measurementCount > 0) _WeekSummary(),
 
                     const SizedBox(height: 24),
 
@@ -221,7 +231,8 @@ class _LatestResultCard extends StatelessWidget {
                 const SizedBox(width: 24),
                 _statItem('CV', measurement.cv.toStringAsFixed(3)),
                 const SizedBox(width: 24),
-                _statItem('RMSSD', '${measurement.rmssd.toStringAsFixed(0)} ms'),
+                _statItem(
+                    'RMSSD', '${measurement.rmssd.toStringAsFixed(0)} ms'),
               ],
             ),
             const SizedBox(height: 16),
@@ -252,8 +263,7 @@ class _LatestResultCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style:
-                const TextStyle(color: Colors.white60, fontSize: 10)),
+            style: const TextStyle(color: Colors.white60, fontSize: 10)),
         const SizedBox(height: 2),
         Text(value,
             style: const TextStyle(
@@ -310,12 +320,11 @@ class _WeekSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final all = StorageService.getAllMeasurements();
     final week = all
-        .where((m) =>
-            m.timestamp.isAfter(DateTime.now().subtract(const Duration(days: 7))))
+        .where((m) => m.timestamp
+            .isAfter(DateTime.now().subtract(const Duration(days: 7))))
         .toList();
 
-    final afCount =
-        week.where((m) => m.afResult == AfResult.possibleAF).length;
+    final afCount = week.where((m) => m.afResult == AfResult.possibleAF).length;
     final avgCV = week.isEmpty
         ? 0.0
         : week.map((m) => m.cv).reduce((a, b) => a + b) / week.length;
@@ -416,22 +425,26 @@ class _QuickTipsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.secondary.withOpacity(0.06),
+        // background and border opacity vary with brightness to ensure visibility
+        color: Theme.of(context).colorScheme.secondary.withOpacity(
+            Theme.of(context).brightness == Brightness.dark ? 0.15 : 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.secondary.withOpacity(0.2)),
+        border: Border.all(
+            color: Theme.of(context).colorScheme.secondary.withOpacity(
+                Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            const Icon(Icons.tips_and_updates_rounded,
-                color: AppTheme.secondary, size: 18),
+            Icon(Icons.tips_and_updates_rounded,
+                color: Theme.of(context).colorScheme.secondary, size: 18),
             const SizedBox(width: 8),
             Text('Tips for Best Results',
                 style: Theme.of(context)
                     .textTheme
                     .titleMedium
-                    ?.copyWith(color: AppTheme.secondary)),
+                    ?.copyWith(color: Theme.of(context).colorScheme.secondary)),
           ]),
           const SizedBox(height: 12),
           ...[

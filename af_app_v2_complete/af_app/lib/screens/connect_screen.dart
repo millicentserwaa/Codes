@@ -4,6 +4,7 @@ import '../models/measurement.dart';
 import '../services/ble_service.dart';
 import '../services/storage_service.dart';
 import '../services/stroke_algorithm.dart';
+import 'dart:math' as math;
 import '../theme/app_theme.dart';
 import 'results_screen.dart';
 
@@ -32,11 +33,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
     int strokeScore = 0;
     int strokeRiskIndex = 0;
     if (profile != null) {
+      // new algorithm expects pRR50 and SDSD instead of CV/RMSSD
       final result = StrokeAlgorithm.calculate(
         profile: profile,
-        cv: reading.cv,
-        rmssd: reading.rmssd,
-        afResult: AfResult.values[reading.afResultIndex],
+        pRR50: reading.pnn50,
+        sdsd: reading.rmssd / math.sqrt(2),
+        afResultIndex: reading.afResultIndex,
         systolicBP: reading.systolicBP > 0 ? reading.systolicBP : null,
       );
       strokeScore = result.totalScore;

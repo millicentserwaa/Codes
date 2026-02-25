@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/measurement.dart';
+//import '../services/stroke_algorithm.dart';
+import '../models/stroke_models.dart';
 import '../theme/app_theme.dart';
 import '../services/tts_service.dart';
 
@@ -135,7 +137,7 @@ class StrokeRiskChip extends StatelessWidget {
     switch (risk) {
       case StrokeRisk.low:
         return AppTheme.riskLow;
-      case StrokeRisk.moderate:
+      case StrokeRisk.lowModerate:
         return AppTheme.riskModerate;
       case StrokeRisk.high:
         return AppTheme.riskHigh;

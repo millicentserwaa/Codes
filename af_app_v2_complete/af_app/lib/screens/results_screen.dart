@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../models/measurement.dart';
 import '../services/storage_service.dart';
+import 'dart:math' as math;
 import '../services/stroke_algorithm.dart';
+import '../models/stroke_models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
-import '../services/tts_service.dart';
+//import '../services/tts_service.dart';
 import 'recommendations_screen.dart';
 
 class ResultsScreen extends StatelessWidget {
@@ -18,9 +20,9 @@ class ResultsScreen extends StatelessWidget {
     final scoreResult = profile != null
         ? StrokeAlgorithm.calculate(
             profile: profile,
-            cv: measurement.cv,
-            rmssd: measurement.rmssd,
-            afResult: measurement.afResult,
+            pRR50: measurement.pnn50,
+            sdsd: measurement.rmssd / math.sqrt(2),
+            afResultIndex: measurement.afResultIndex,
             systolicBP: measurement.systolicBP,
           )
         : null;
@@ -221,7 +223,7 @@ class ResultsScreen extends StatelessWidget {
     switch (r) {
       case StrokeRisk.low:
         return AppTheme.riskLow;
-      case StrokeRisk.moderate:
+      case StrokeRisk.lowModerate:
         return AppTheme.riskModerate;
       case StrokeRisk.high:
         return AppTheme.riskHigh;
@@ -312,7 +314,7 @@ class _StrokeScoreCard extends StatelessWidget {
     switch (result.risk) {
       case StrokeRisk.low:
         return AppTheme.riskLow;
-      case StrokeRisk.moderate:
+      case StrokeRisk.lowModerate:
         return AppTheme.riskModerate;
       case StrokeRisk.high:
         return AppTheme.riskHigh;

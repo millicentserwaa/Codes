@@ -95,7 +95,6 @@ class _MeasurementList extends StatelessWidget {
           return MeasurementListTile(
             measurement: m,
             onTap: () {
-              // stop any ongoing narration before leaving
               TtsService.instance.stop();
               Navigator.push(
                 context,
@@ -130,49 +129,83 @@ class _TrendsView extends StatelessWidget {
     final sorted = [...measurements]
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
+    final timestamps = sorted.map((m) => m.timestamp).toList();
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
+
+        // ── pRR50 ─────────────────────────────────────────────
+        // Stroke HRV flag: low pRR50 (<3%) indicates autonomic dysfunction
+        // Ref: Liao et al. Stroke. 1997;28(10):1944-1950
         _ChartCard(
-          title: 'Coefficient of Variation (CV)',
-          subtitle: 'AF threshold: 0.15',
-          thresholdY: 0.15,
-          data: sorted.map((m) => m.cv).toList(),
-          color: AppTheme.primary,
-          timestamps: sorted.map((m) => m.timestamp).toList(),
-        ),
-        const SizedBox(height: 20),
-        _ChartCard(
-          title: 'RMSSD',
-          subtitle: 'AF threshold: 80 ms',
-          thresholdY: 80,
-          data: sorted.map((m) => m.rmssd).toList(),
+          title: 'pRR50 (Autonomic Modulation)',
+          subtitle: 'Stroke risk flag: below 3% — Ref: Liao et al. 1997',
+          thresholdY: 3.0,
+          thresholdLabel: '3% threshold',
+          thresholdBelow: true,  // flag when BELOW threshold (low is bad)
+          data: sorted.map((m) => m.pRR50).toList(),
           color: AppTheme.secondary,
-          timestamps: sorted.map((m) => m.timestamp).toList(),
+          timestamps: timestamps,
         ),
         const SizedBox(height: 20),
+
+        // ── SDSD ──────────────────────────────────────────────
+        // Stroke HRV flag: high SDSD (>50ms) indicates autonomic instability
+        // Ref: Task Force ESC/NASPE. Circulation. 1996;93(5):1043-1065
         _ChartCard(
-          title: 'Stroke Risk Score',
-          subtitle: 'High risk threshold: 4',
-          thresholdY: 4,
+          title: 'SDSD (Beat-to-Beat Irregularity)',
+          subtitle: 'Stroke risk flag: above 50ms — Ref: Task Force ESC/NASPE 1996',
+          thresholdY: 50.0,
+          thresholdLabel: '50ms threshold',
+          thresholdBelow: false, // flag when ABOVE threshold (high is bad)
+          data: sorted.map((m) => m.sdsd).toList(),
+          color: AppTheme.warning,
+          timestamps: timestamps,
+        ),
+        const SizedBox(height: 20),
+
+        // ── pRR20 ─────────────────────────────────────────────
+        // Top-ranked AF classifier feature from RF model
+        _ChartCard(
+          title: 'pRR20 (RR Interval Variation)',
+          subtitle: 'Top AF detection feature — proportion of diffs > 20ms',
+          data: sorted.map((m) => m.pRR20).toList(),
+          color: AppTheme.primary,
+          timestamps: timestamps,
+        ),
+        const SizedBox(height: 20),
+
+        // ── Stroke Risk Score ──────────────────────────────────
+        // CHA₂DS₂-VASc score — high risk threshold is ≥2
+        _ChartCard(
+          title: 'CHA₂DS₂-VASc Stroke Score',
+          subtitle: 'High risk threshold: ≥ 2',
+          thresholdY: 2.0,
+          thresholdLabel: 'High risk (≥2)',
+          thresholdBelow: false,
           data: sorted.map((m) => m.strokeScore.toDouble()).toList(),
           color: AppTheme.danger,
-          timestamps: sorted.map((m) => m.timestamp).toList(),
+          timestamps: timestamps,
         ),
         const SizedBox(height: 20),
+
+        // ── Heart Rate ────────────────────────────────────────
         _ChartCard(
           title: 'Heart Rate',
           subtitle: 'Beats per minute',
           data: sorted.map((m) => m.heartRate).toList(),
-          color: AppTheme.warning,
-          timestamps: sorted.map((m) => m.timestamp).toList(),
+          color: AppTheme.primary,
+          timestamps: timestamps,
         ),
+
         const SizedBox(height: 40),
       ],
     );
   }
 }
 
+// ── Chart card ─────────────────────────────────────────────────
 class _ChartCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -180,6 +213,11 @@ class _ChartCard extends StatelessWidget {
   final List<DateTime> timestamps;
   final Color color;
   final double? thresholdY;
+  final String? thresholdLabel;
+
+  // thresholdBelow = true  → warn when value is BELOW threshold (e.g. pRR50)
+  // thresholdBelow = false → warn when value is ABOVE threshold (e.g. SDSD)
+  final bool thresholdBelow;
 
   const _ChartCard({
     required this.title,
@@ -188,6 +226,8 @@ class _ChartCard extends StatelessWidget {
     required this.timestamps,
     required this.color,
     this.thresholdY,
+    this.thresholdLabel,
+    this.thresholdBelow = false,
   });
 
   @override
@@ -198,28 +238,69 @@ class _ChartCard extends StatelessWidget {
         .map((e) => FlSpot(e.key.toDouble(), e.value))
         .toList();
 
-    final maxY = data.reduce((a, b) => a > b ? a : b);
-    final minY = data.reduce((a, b) => a < b ? a : b);
+    final maxY      = data.reduce((a, b) => a > b ? a : b);
+    final minY      = data.reduce((a, b) => a < b ? a : b);
     final paddedMax = (maxY * 1.25).ceilToDouble();
-    final paddedMin = (minY * 0.75).floorToDouble().clamp(0.0, double.infinity);
+    final paddedMin =
+        (minY * 0.75).floorToDouble().clamp(0.0, double.infinity);
+
+    // Determine chart line color — highlight in danger if any point breaches threshold
+    final hasFlag = thresholdY != null &&
+        data.any((v) => thresholdBelow ? v < thresholdY! : v > thresholdY!);
+    final lineColor = hasFlag ? AppTheme.danger : color;
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppTheme.card,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(
+          color: hasFlag
+              ? AppTheme.danger.withOpacity(0.35)
+              : AppTheme.border,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          // Title row with optional flag badge
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              if (hasFlag)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.danger.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(
+                        color: AppTheme.danger.withOpacity(0.4)),
+                  ),
+                  child: const Text(
+                    '⚠ Flagged',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.danger,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 2),
-          Text(subtitle,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(fontSize: 11)),
+          Text(
+            subtitle,
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(fontSize: 11),
+          ),
           const SizedBox(height: 20),
           SizedBox(
             height: 160,
@@ -237,7 +318,8 @@ class _ChartCard extends StatelessWidget {
                           label: HorizontalLineLabel(
                             show: true,
                             alignment: Alignment.topRight,
-                            labelResolver: (_) => ' threshold',
+                            labelResolver: (_) =>
+                                ' ${thresholdLabel ?? 'threshold'}',
                             style: const TextStyle(
                                 fontSize: 9, color: AppTheme.danger),
                           ),
@@ -259,13 +341,11 @@ class _ChartCard extends StatelessWidget {
                       showTitles: true,
                       reservedSize: 38,
                       getTitlesWidget: (val, _) => Text(
-                        val.toStringAsFixed(val < 1
-                            ? 2
-                            : val < 10
-                                ? 1
-                                : 0),
+                        val.toStringAsFixed(
+                            val < 1 ? 2 : val < 10 ? 1 : 0),
                         style: const TextStyle(
-                            fontSize: 9, color: AppTheme.textSecondary),
+                            fontSize: 9,
+                            color: AppTheme.textSecondary),
                       ),
                     ),
                   ),
@@ -285,7 +365,8 @@ class _ChartCard extends StatelessWidget {
                         return Text(
                           '${d.day}/${d.month}',
                           style: const TextStyle(
-                              fontSize: 9, color: AppTheme.textSecondary),
+                              fontSize: 9,
+                              color: AppTheme.textSecondary),
                         );
                       },
                     ),
@@ -299,20 +380,27 @@ class _ChartCard extends StatelessWidget {
                   LineChartBarData(
                     spots: spots,
                     isCurved: true,
-                    color: color,
+                    color: lineColor,
                     barWidth: 2.5,
                     dotData: FlDotData(
                       show: true,
-                      getDotPainter: (spot, _, __, ___) => FlDotCirclePainter(
-                        radius: 4,
-                        color: color,
-                        strokeColor: Colors.white,
-                        strokeWidth: 1.5,
-                      ),
+                      getDotPainter: (spot, _, __, ___) {
+                        // Highlight individual flagged points in red
+                        final isFlagged = thresholdY != null &&
+                            (thresholdBelow
+                                ? spot.y < thresholdY!
+                                : spot.y > thresholdY!);
+                        return FlDotCirclePainter(
+                          radius: 4,
+                          color: isFlagged ? AppTheme.danger : lineColor,
+                          strokeColor: Colors.white,
+                          strokeWidth: 1.5,
+                        );
+                      },
                     ),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: color.withValues(alpha: 0.08),
+                      color: lineColor.withValues(alpha: 0.08),
                     ),
                   ),
                 ],
@@ -323,9 +411,10 @@ class _ChartCard extends StatelessWidget {
                       return LineTooltipItem(
                         s.y.toStringAsFixed(s.y < 1 ? 3 : 1),
                         const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600),
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       );
                     }).toList(),
                   ),

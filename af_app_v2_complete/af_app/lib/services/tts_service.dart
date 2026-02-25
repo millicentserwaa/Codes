@@ -1,11 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-// web platform speech synthesis (guarded by kIsWeb)
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
 
-/// Simple wrapper around flutter_tts to provide a single accessible
-/// speak/stop interface for the app.
+export 'tts_service_mobile.dart'
+    if (dart.library.html) 'tts_service_web.dart';
+
 class TtsService {
   TtsService._internal();
   static final TtsService instance = TtsService._internal();
@@ -66,18 +64,6 @@ class TtsService {
     // ignore: avoid_print
     print('[TtsService] speak requested: "$text"');
 
-    if (kIsWeb) {
-      // use browser speech synthesis directly as fallback
-      final synth = html.window.speechSynthesis;
-      if (synth != null) {
-        final utter = html.SpeechSynthesisUtterance(text);
-        synth.speak(utter);
-      } else {
-        // ignore: avoid_print
-        print('[TtsService] web speechSynthesis unavailable');
-      }
-      return;
-    }
 
     await init();
     // the flutter_tts implementation can drop long strings, so split
