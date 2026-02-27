@@ -4,6 +4,7 @@ import 'models/app_settings.dart';
 import 'services/auth_service.dart';
 import 'services/ble_service.dart';
 import 'services/storage_service.dart';
+import 'services/reminder_service.dart';
 import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
 import 'screens/analysis_screen.dart';
@@ -12,18 +13,13 @@ import 'screens/health_tips_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/auth/login_screen.dart';
 
-// flags used during development
 const bool kAutoSeedDemoData = true;
-
-// debug flag imported from auth_service (already included above)
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Init storage first (Hive needs to be ready before auth/settings)
   await StorageService.init();
 
-  // optionally seed some demo records/profile for debugging
   if (kAutoSeedDemoData) {
     await StorageService.seedDemoData();
     await StorageService.seedDemoProfile();
@@ -31,15 +27,18 @@ void main() async {
 
   await AuthService.initBoxes();
   await AppSettings.initBox();
+  await ReminderService.init();
 
-  // NOTE: Remove seedDemoData() once you have real device data
-  // await StorageService.seedDemoData();
-
-  final auth = AuthService();
+  final auth     = AuthService();
   final settings = AppSettings();
 
   await auth.restoreSession();
   await settings.load();
+
+  // Re-schedule reminder on app start if it was enabled
+  if (settings.reminderEnabled) {
+    await ReminderService.scheduleDailyReminder(settings.reminderTime);
+  }
 
   runApp(
     MultiProvider(
@@ -59,15 +58,14 @@ class AfScreenApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<AppSettings>();
-    final auth = context.watch<AuthService>();
+    final auth     = context.watch<AuthService>();
 
     return MaterialApp(
       title: 'AF Screen',
       debugShowCheckedModeBanner: false,
       themeMode: settings.themeMode,
-      theme: AppTheme.lightTheme(fontScale: settings.fontScale),
+      theme:     AppTheme.lightTheme(fontScale: settings.fontScale),
       darkTheme: AppTheme.darkTheme(fontScale: settings.fontScale),
-      // Auth gate: show login if not signed in (disabled during debug)
       home: kAuthDisabledForDebug
           ? const MainShell()
           : (auth.isSignedIn ? const MainShell() : const LoginScreen()),
@@ -75,7 +73,6 @@ class AfScreenApp extends StatelessWidget {
   }
 }
 
-// Main shell with bottom nav 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -115,27 +112,27 @@ class _MainShellState extends State<MainShell> {
           onTap: (i) => setState(() => _currentIndex = i),
           items: const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
+              icon:       Icon(Icons.home_outlined),
               activeIcon: Icon(Icons.home_rounded),
               label: 'Home',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.monitor_heart_outlined),
+              icon:       Icon(Icons.monitor_heart_outlined),
               activeIcon: Icon(Icons.monitor_heart_rounded),
               label: 'Analysis',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.history_outlined),
+              icon:       Icon(Icons.history_outlined),
               activeIcon: Icon(Icons.history_rounded),
               label: 'History',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.health_and_safety_outlined),
+              icon:       Icon(Icons.health_and_safety_outlined),
               activeIcon: Icon(Icons.health_and_safety_rounded),
               label: 'Health Tips',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.settings_outlined),
+              icon:       Icon(Icons.settings_outlined),
               activeIcon: Icon(Icons.settings_rounded),
               label: 'Settings',
             ),

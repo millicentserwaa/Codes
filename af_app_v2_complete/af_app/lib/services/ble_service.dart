@@ -113,12 +113,12 @@ class BleService extends ChangeNotifier {
           .where((e) => e.value != PermissionStatus.granted)
           .map((e) => e.key.toString())
           .join(', ');
-      debugPrint('❌ Permissions denied: $denied');
+      debugPrint(' Permissions denied: $denied');
       _setStatus(BleStatus.error,
           'Permissions denied. Please grant Bluetooth and Location in Settings.');
       return false;
     }
-    debugPrint('✅ All BLE permissions granted');
+    debugPrint(' All BLE permissions granted');
     return true;
   }
 
@@ -137,7 +137,7 @@ class BleService extends ChangeNotifier {
 
     _scanResults.clear();
     _setStatus(BleStatus.scanning, 'Scanning for AF device...');
-    debugPrint('🔵 Scan started — discovering all devices');
+    debugPrint(' Scan started — discovering all devices');
 
     await FlutterBluePlus.startScan(
       timeout: const Duration(seconds: 15),
@@ -154,14 +154,14 @@ class BleService extends ChangeNotifier {
             ? r.device.platformName
             : r.advertisementData.localName;
 
-        debugPrint('🔵 Found: "$name" (${r.device.remoteId})');
+        debugPrint(' Found: "$name" (${r.device.remoteId})');
       }
     });
 
     // Timeout
     Future.delayed(const Duration(seconds: 16), () {
       if (_status == BleStatus.scanning) {
-        debugPrint('❌ Scan timed out');
+        debugPrint(' Scan timed out');
         stopScan();
         _setStatus(BleStatus.disconnected,
             'Device not found. Make sure the AF device is powered on and nearby.');
@@ -184,10 +184,10 @@ class BleService extends ChangeNotifier {
       await device.connect(
           timeout: const Duration(seconds: 10), license: License.free);
       _setStatus(BleStatus.connected, 'Connected to ${device.platformName}');
-      debugPrint('✅ Connected to ${device.platformName}');
+      debugPrint(' Connected to ${device.platformName}');
 
       _connectionSubscription = device.connectionState.listen((state) {
-        debugPrint('🔵 Connection state: $state');
+        debugPrint(' Connection state: $state');
         if (state == BluetoothConnectionState.disconnected) {
           _onDisconnected();
         }
@@ -195,7 +195,7 @@ class BleService extends ChangeNotifier {
 
       await _discoverServices();
     } catch (e) {
-      debugPrint('❌ Connection error: $e');
+      debugPrint(' Connection error: $e');
       _setStatus(BleStatus.error, 'Connection failed: $e');
     }
   }
@@ -211,23 +211,23 @@ class BleService extends ChangeNotifier {
     _liveEcgSubscription?.cancel();
     _device = null;
     _setStatus(BleStatus.disconnected, 'Disconnected from device.');
-    debugPrint('🔵 Device disconnected');
+    debugPrint(' Device disconnected');
   }
 
   // ── Discover services ─────────────────────────────────────
   Future<void> _discoverServices() async {
     if (_device == null) return;
-    debugPrint('🔵 Discovering services...');
+    debugPrint(' Discovering services...');
 
     final services = await _device!.discoverServices();
-    debugPrint('🔵 Found ${services.length} services');
+    debugPrint(' Found ${services.length} services');
 
     for (final service in services) {
-      debugPrint('🔵 Service: ${service.uuid}');
+      debugPrint('Service: ${service.uuid}');
       if (service.uuid.toString().toLowerCase() == _serviceUUID.toLowerCase()) {
         for (final char in service.characteristics) {
           final uuid = char.uuid.toString().toLowerCase();
-          debugPrint('  🔵 Characteristic: $uuid');
+          debugPrint('   Characteristic: $uuid');
           if (uuid == _dataCharUUID.toLowerCase()) _dataChar = char;
           if (uuid == _countCharUUID.toLowerCase()) _countChar = char;
           if (uuid == _commandCharUUID.toLowerCase()) _commandChar = char;
@@ -238,19 +238,19 @@ class BleService extends ChangeNotifier {
     }
 
     if (_dataChar == null) {
-      debugPrint('⚠️ Data characteristic not found — check UUIDs in firmware');
+      debugPrint(' Data characteristic not found — check UUIDs in firmware');
     }
 
     if (_dataChar != null && _dataChar!.properties.notify) {
       await _dataChar!.setNotifyValue(true);
       _notifySubscription = _dataChar!.onValueReceived.listen(_onDataReceived);
-      debugPrint('✅ Subscribed to data notifications');
+      debugPrint(' Subscribed to data notifications');
     }
 
     if (_liveEcgChar != null && _liveEcgChar!.properties.notify) {
       await _liveEcgChar!.setNotifyValue(true);
       _liveEcgSubscription = _liveEcgChar!.onValueReceived.listen(_onLiveEcg);
-      debugPrint('✅ Subscribed to live ECG stream');
+      debugPrint(' Subscribed to live ECG stream');
     }
   }
 
@@ -260,10 +260,10 @@ class BleService extends ChangeNotifier {
       final json = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
       final reading = DeviceReading.fromJson(json);
       debugPrint(
-          '✅ Measurement received: HR=${reading.heartRate} CV=${reading.cv}');
+          'Measurement received: HR=${reading.heartRate} CV=${reading.cv}');
       _readingController.add(reading);
     } catch (e) {
-      debugPrint('❌ BLE data parse error: $e');
+      debugPrint(' BLE data parse error: $e');
     }
   }
 

@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../models/measurement.dart';
 import '../models/patient_profile.dart';
@@ -588,7 +589,7 @@ class _Disclaimer extends StatelessWidget {
       child: Row(children: [
         Expanded(
           child: Text(
-            '⚕️  This device is a screening tool only and does not constitute a clinical diagnosis. '
+            'This device is a screening tool only and does not constitute a clinical diagnosis. '
             'Always consult a qualified healthcare professional before making any medical decisions.',
             style: Theme.of(context)
                 .textTheme
