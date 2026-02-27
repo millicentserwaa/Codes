@@ -29,6 +29,14 @@ dependencies:
   intl: ^0.19.1 #For date formatting
   uuid: ^4.4.2
 
+  #TTS 
+  flutter_tts: ^4.0.2
+
+  flutter_local_notifications: ^17.2.2
+  timezone: ^0.9.4
+
+
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
