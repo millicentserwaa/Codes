@@ -363,7 +363,7 @@ class _DeviceScreenState extends State<DeviceScreen> {
 
         if (!_isScanning && _scanResults.isEmpty) ...[
           const SizedBox(height: 20),
-          const EmptyState(
+          EmptyState(
             icon: Icons.bluetooth_searching_rounded,
             title: 'No devices found',
             subtitle:
@@ -458,7 +458,7 @@ class _DeviceScreenState extends State<DeviceScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'Device Actions'),
+        SectionHeader(title: 'Device Actions'),
         const SizedBox(height: 16),
 
         // Sync button

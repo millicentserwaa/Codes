@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/hive_service.dart';
+import '../services/biometric_service.dart';
 import '../theme/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -38,14 +39,52 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.forward();
 
     // Navigate after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () {
+    Future.delayed(const Duration(seconds: 3), () async {
       if (!mounted) return;
-      if (_hiveService.hasProfile) {
-        Navigator.pushReplacementNamed(context, '/home');
-      } else {
-        Navigator.pushReplacementNamed(context, '/onboarding');
-      }
-    });
+
+    if (!_hiveService.hasProfile) {
+      // First time — go to onboarding, no auth needed
+      Navigator.pushReplacementNamed(context, '/onboarding');
+      return;
+    }
+
+    // Returning user — require authentication
+    final authenticated = await BiometricService.authenticate(
+      reason: 'Verify your identity to access CheckIn',
+    );
+
+    if (!mounted) return;
+
+    if (authenticated) {
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
+      // Auth failed or cancelled — show a message and let them retry
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          title: const Text('Authentication Required'),
+          content: const Text(
+          'You must verify your identity to access your health data.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                // Retry authentication
+                final retry = await BiometricService.authenticate(
+                  reason: 'Verify your identity to access CheckIn',
+                );
+                if (!mounted) return;
+                if (retry) Navigator.pushReplacementNamed(context, '/home');
+              },
+              child: const Text('Try Again'),
+            ),
+          ],
+        ),
+      );
+    }
+  });
   }
 
   @override

@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/user_profile.dart';
 import '../services/hive_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/validators.dart';   
+
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -16,6 +18,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final HiveService _hiveService = HiveService();
 
   int _currentPage = 0;
+  String? _nameError;
 
   // Form controllers
   final _nameController = TextEditingController();
@@ -36,12 +39,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
+
   void _nextPage() {
-    if (_currentPage == 0 && _nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your name')),
-      );
-      return;
+    if (_currentPage == 0) {
+      // Validate name properly
+      final error = Validators.validateName(_nameController.text);
+      if (error != null) {
+        setState(() => _nameError = error);
+        return;
+      }
+      setState(() => _nameError = null);
     }
     if (_currentPage == 1 && _dateOfBirth == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -58,6 +65,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _saveProfile();
     }
   }
+
 
   void _previousPage() {
     _pageController.previousPage(
@@ -208,9 +216,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               fontSize: 16,
               color: AppTheme.textPrimary,
             ),
-            decoration: const InputDecoration(
+            
+            onChanged: (_) {
+              // Clear error as user types
+              if (_nameError != null) setState(() => _nameError = null);
+          },
+            decoration: InputDecoration(
               hintText: 'Enter your full name',
               prefixIcon: Icon(Icons.person_outline_rounded),
+              errorText: _nameError,
             ),
           ),
         ],

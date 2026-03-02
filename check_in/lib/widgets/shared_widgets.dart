@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 
-// ── Section Header ───────────────────────────────────────
 class SectionHeader extends StatelessWidget {
   final String title;
   final String? actionLabel;
@@ -46,7 +45,6 @@ class SectionHeader extends StatelessWidget {
   }
 }
 
-// ── Risk Badge ───────────────────────────────────────────
 class RiskBadge extends StatelessWidget {
   final String riskLevel;
   final bool isDark;
@@ -82,7 +80,6 @@ class RiskBadge extends StatelessWidget {
   }
 }
 
-// ── Rhythm Badge ─────────────────────────────────────────
 class RhythmBadge extends StatelessWidget {
   final int afPrediction;
   final bool isDark;
@@ -133,7 +130,6 @@ class RhythmBadge extends StatelessWidget {
   }
 }
 
-// ── Measurement List Tile ────────────────────────────────
 class MeasurementTile extends StatelessWidget {
   final String rhythm;
   final double heartRate;
@@ -168,7 +164,6 @@ class MeasurementTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Heart rate indicator
             Container(
               width: 52,
               height: 52,
@@ -200,8 +195,6 @@ class MeasurementTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 14),
-
-            // Details
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,8 +218,6 @@ class MeasurementTile extends StatelessWidget {
                 ],
               ),
             ),
-
-            // Confidence
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -263,7 +254,6 @@ class MeasurementTile extends StatelessWidget {
   }
 }
 
-// ── Empty State ──────────────────────────────────────────
 class EmptyState extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -316,7 +306,6 @@ class EmptyState extends StatelessWidget {
   }
 }
 
-// ── Loading Indicator ────────────────────────────────────
 class LoadingIndicator extends StatelessWidget {
   final String? message;
 

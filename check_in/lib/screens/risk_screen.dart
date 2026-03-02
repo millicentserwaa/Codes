@@ -41,7 +41,7 @@ class _RiskScreenState extends State<RiskScreen> {
         title: const Text('Stroke Risk'),
       ),
       body: profile == null
-          ? const EmptyState(
+          ?  EmptyState(
               icon: Icons.shield_outlined,
               title: 'No profile found',
               subtitle:

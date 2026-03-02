@@ -67,7 +67,7 @@ class BleService {
         if (service.uuid.toString().toLowerCase() == serviceUuid) {
           for (var char in service.characteristics) {
             String uuid = char.uuid.toString().toLowerCase();
-            if (uuid == readCharUuid)    _readChar    = char;
+            if (uuid == readCharUuid) _readChar = char;
             if (uuid == controlCharUuid) _controlChar = char;
           }
         }
@@ -83,7 +83,6 @@ class BleService {
       _connectionController.add(true);
       _statusController.add('Connected to AF_Monitor');
       return true;
-
     } catch (e) {
       _statusController.add('Connection failed: $e');
       return false;
@@ -115,9 +114,12 @@ class BleService {
       if (parts.length == 4) {
         try {
           final measurement = Measurement.fromBLE(raw);
-          await _hiveService.saveMeasurement(measurement);
-          received.add(measurement);
-          _measurementController.add(measurement);
+          final key = measurement.timestamp.millisecondsSinceEpoch.toString();
+          if (!_hiveService.measurementBox.containsKey(key)) {
+            await _hiveService.saveMeasurement(measurement);
+            received.add(measurement);
+            _measurementController.add(measurement);
+          }
           _syncProgressController.add(received.length);
         } catch (e) {
           _statusController.add('Parse error: $e');
@@ -140,9 +142,7 @@ class BleService {
 
     // Wait for END signal, max 30 seconds
     try {
-      final count = await completer.future.timeout(
-        const Duration(seconds: 30),
-      );
+      final count = await completer.future.timeout(const Duration(seconds: 30));
       sub.cancel();
       _statusController.add('Synced $count measurements');
       return count;
@@ -167,15 +167,10 @@ class BleService {
       }
     });
 
-    await _controlChar!.write(
-      utf8.encode('GET_COUNT'),
-      withoutResponse: false,
-    );
+    await _controlChar!.write(utf8.encode('GET_COUNT'), withoutResponse: false);
 
     try {
-      final count = await completer.future.timeout(
-        const Duration(seconds: 5),
-      );
+      final count = await completer.future.timeout(const Duration(seconds: 5));
       sub.cancel();
       return count;
     } catch (_) {
@@ -194,7 +189,7 @@ class BleService {
     _statusController.add('Device storage cleared');
   }
 
-  // Disconnect 
+  // Disconnect
   Future<void> disconnect() async {
     await _connectedDevice?.disconnect();
     _connectedDevice = null;

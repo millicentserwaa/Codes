@@ -44,7 +44,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ],
       ),
       body: _measurements.isEmpty
-          ? const EmptyState(
+          ? EmptyState(
               icon: Icons.history_rounded,
               title: 'No readings yet',
               subtitle:
