@@ -252,23 +252,44 @@ void calculateFeatures(int* rr_intervals, int count, float* features) {
 }
 
 // UPDATED CLASSIFIER 
+// int predictAF(float* features, int* confidence) {
+//   Eloquent::ML::Port::RandomForest clf;
+//   int prediction = clf.predict(features);
+
+//   // Confidence based on validated model accuracy
+//   *confidence = (prediction == 1) ? 92 : 84;
+
+//   // Debug output
+//   Serial.print("  mean_rr : "); Serial.print(features[0], 2); Serial.println(" ms");
+//   Serial.print("  pRR20   : "); Serial.print(features[1], 1); Serial.println("%");
+//   Serial.print("  pRR6.25 : "); Serial.print(features[2], 1); Serial.println("%");
+//   Serial.print("  pRR30   : "); Serial.print(features[3], 1); Serial.println("%");
+//   Serial.print("  pRR50   : "); Serial.print(features[4], 1); Serial.println("%");
+//   Serial.print("  sdsd    : "); Serial.print(features[5], 2); Serial.println(" ms");
+//   Serial.print("  tpr     : "); Serial.print(features[6], 4); Serial.println();
+//   Serial.print("  Result  : "); Serial.println(prediction == 1 ? "POSSIBLE AF" : "NORMAL");
+//   Serial.print("  Conf    : "); Serial.print(*confidence); Serial.println("%");
+
+//   return prediction;
+// }
+
+
 int predictAF(float* features, int* confidence) {
   Eloquent::ML::Port::RandomForest clf;
-  int prediction = clf.predict(features);
+  
+  // Get the raw vote counts from all 7 trees
+  uint8_t votes[2] = {0};
+  int prediction = clf.predictWithVotes(features, votes);
+  
+  // Confidence = winning votes / total trees × 100
+  // e.g. 5/7 trees → 71%, 7/7 trees → 100%
+  *confidence = (int)((float)votes[prediction] / 7.0f * 100.0f);
 
-  // Confidence based on validated model accuracy
-  *confidence = (prediction == 1) ? 92 : 84;
-
-  // Debug output
-  Serial.print("  mean_rr : "); Serial.print(features[0], 2); Serial.println(" ms");
-  Serial.print("  pRR20   : "); Serial.print(features[1], 1); Serial.println("%");
-  Serial.print("  pRR6.25 : "); Serial.print(features[2], 1); Serial.println("%");
-  Serial.print("  pRR30   : "); Serial.print(features[3], 1); Serial.println("%");
-  Serial.print("  pRR50   : "); Serial.print(features[4], 1); Serial.println("%");
-  Serial.print("  sdsd    : "); Serial.print(features[5], 2); Serial.println(" ms");
-  Serial.print("  tpr     : "); Serial.print(features[6], 4); Serial.println();
-  Serial.print("  Result  : "); Serial.println(prediction == 1 ? "POSSIBLE AF" : "NORMAL");
-  Serial.print("  Conf    : "); Serial.print(*confidence); Serial.println("%");
+  Serial.print("  Votes    : Normal="); Serial.print(votes[0]);
+  Serial.print(" | AF=");              Serial.print(votes[1]);
+  Serial.print(" | Confidence: ");     Serial.print(*confidence);
+  Serial.println("%");
+  Serial.print("  Result   : "); Serial.println(prediction == 1 ? "POSSIBLE AF" : "NORMAL");
 
   return prediction;
 }
@@ -276,7 +297,7 @@ int predictAF(float* features, int* confidence) {
 // FLASH STORAGE
 void storeReading(float* features, int prediction, int confidence) {
   AFReading reading;
-  reading.timestamp     = millis();
+  reading.timestamp     = millis() /1000;
   reading.mean_rr       = features[0];
   reading.pRR20         = features[1];
   reading.pRR6_25       = features[2];

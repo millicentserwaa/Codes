@@ -33,10 +33,10 @@ class Measurement extends HiveObject {
   }) : id = id ?? const Uuid().v4();
 
   // Convert from BLE CSV data: "timestamp,mean_hr,af_prediction,confidence"
-  factory Measurement.fromBLE(String csvLine) {
-    final parts = csvLine.split(',');
+  factory Measurement.fromBLE(String raw) {
+    final parts = raw.split(',');
     return Measurement(
-      timestamp: DateTime.fromMillisecondsSinceEpoch(int.parse(parts[0].trim())),
+      timestamp: DateTime.now(), // Use current time for BLE data
       heartRate: double.parse(parts[1].trim()),
       afPrediction: int.parse(parts[2].trim()),
       confidence: int.parse(parts[3].trim()),

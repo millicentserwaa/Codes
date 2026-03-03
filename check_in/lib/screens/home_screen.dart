@@ -1,9 +1,9 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/measurement.dart';
 import '../models/user_profile.dart';
 import '../services/hive_service.dart';
+import '../services/ble_service.dart';
 import '../theme/app_theme.dart';
 import 'history_screen.dart';
 import 'risk_screen.dart';
@@ -20,13 +20,33 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    _DashboardTab(),
-    RiskScreen(),
-    HistoryScreen(),
-    HealthTipsScreen(),
-    SettingsScreen(),
-  ];
+  // ── Single BleService instance shared across ALL tabs ─────────────────────
+  // This is the critical fix: one instance means one stream.
+  // SettingsScreen syncs data → BleService emits on measurementStream
+  // → HistoryScreen and DashboardTab both hear it and refresh.
+  final BleService _bleService = BleService();
+
+  // Screens are built once but receive the shared _bleService
+  // NOT const — they need runtime references
+  late final List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      _DashboardTab(bleService: _bleService),
+      RiskScreen(),
+      HistoryScreen(bleService: _bleService),
+      HealthTipsScreen(),
+      SettingsScreen(bleService: _bleService),
+    ];
+  }
+
+  @override
+  void dispose() {
+    _bleService.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,9 +92,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ── Dashboard Tab ────────────────────────────────────────
+// ── Dashboard Tab ─────────────────────────────────────────────────────────────
 class _DashboardTab extends StatefulWidget {
-  const _DashboardTab();
+  final BleService bleService;
+  const _DashboardTab({required this.bleService});
 
   @override
   State<_DashboardTab> createState() => _DashboardTabState();
@@ -90,9 +111,15 @@ class _DashboardTabState extends State<_DashboardTab> {
   void initState() {
     super.initState();
     _loadData();
+
+    // Refresh dashboard whenever a new measurement comes in via BLE
+    widget.bleService.measurementStream.listen((_) {
+      _loadData();
+    });
   }
 
   void _loadData() {
+    if (!mounted) return;
     setState(() {
       _profile = _hiveService.getUserProfile();
       _measurements = _hiveService.getAllMeasurements();
@@ -149,23 +176,16 @@ class _DashboardTabState extends State<_DashboardTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Latest reading card
               _buildLatestCard(),
               const SizedBox(height: 20),
-
-              // Stroke risk card
               if (_profile != null) ...[
                 _buildRiskCard(),
                 const SizedBox(height: 20),
               ],
-
-              // Stats row
               if (_measurements.isNotEmpty) ...[
                 _buildStatsRow(),
                 const SizedBox(height: 20),
               ],
-
-              // No data prompt
               if (_latest == null) _buildNoDataCard(),
             ],
           ),
@@ -173,6 +193,8 @@ class _DashboardTabState extends State<_DashboardTab> {
       ),
     );
   }
+
+  
 
   Widget _buildLatestCard() {
     if (_latest == null) {
@@ -256,7 +278,6 @@ class _DashboardTabState extends State<_DashboardTab> {
           const SizedBox(height: 16),
           Row(
             children: [
-              // Heart rate
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -319,7 +340,6 @@ class _DashboardTabState extends State<_DashboardTab> {
                 ],
               ),
               const Spacer(),
-              // Confidence
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -421,12 +441,9 @@ class _DashboardTabState extends State<_DashboardTab> {
 
   Widget _buildStatsRow() {
     final total = _measurements.length;
-    final afCount =
-        _measurements.where((m) => m.afPrediction == 1).length;
-    final avgHR = _measurements
-            .map((m) => m.heartRate)
-            .reduce((a, b) => a + b) /
-        total;
+    final afCount = _measurements.where((m) => m.afPrediction == 1).length;
+    final avgHR =
+        _measurements.map((m) => m.heartRate).reduce((a, b) => a + b) / total;
 
     return Row(
       children: [

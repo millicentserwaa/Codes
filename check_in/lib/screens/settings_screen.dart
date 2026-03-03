@@ -14,11 +14,13 @@ import '../services/pdf_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/validators.dart';
 import '../main.dart';
-
-//String? _nameError;
+import '../widgets/tts_button.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  // ← CHANGED: accept shared BleService instead of creating a new one
+  final BleService bleService;
+
+  const SettingsScreen({super.key, required this.bleService});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -28,7 +30,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final HiveService _hiveService = HiveService();
   final NotificationService _notificationService = NotificationService();
   final TtsService _ttsService = TtsService();
-  final BleService _bleService = BleService();
+
+  // ← CHANGED: use widget.bleService instead of a local instance
+  // _bleService is now just a convenience getter
+  BleService get _bleService => widget.bleService;
 
   String? _nameError;
   UserProfile? _profile;
@@ -94,7 +99,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
-  // ── BLE Methods ──────────────────────────────────────────
+  // ── BLE Methods ───────────────────────────────────────────────────────────────
   Future<bool> _requestPermissions() async {
     final statuses = await [
       Permission.bluetooth,
@@ -143,7 +148,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final success = await _bleService.connectToDevice(device);
     if (mounted) {
       setState(() => _isConnecting = false);
-      if (!success) {
+      if (success) {
+        await _ttsService.speakConnectionStatus(true); // ← ADD THIS
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Connection failed. Please try again.')),
         );
@@ -162,6 +169,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isSyncing = false;
         _measurements = _hiveService.getAllMeasurements();
       });
+      await _ttsService.speakSyncComplete(count); // ← ADD THIS
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Synced $count readings successfully')),
       );
@@ -170,6 +178,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _disconnect() async {
     await _bleService.disconnect();
+    await _ttsService.speakConnectionStatus(false); // ← ADD THIS
     if (mounted) setState(() {});
   }
 
@@ -191,7 +200,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // ── Profile Methods ──────────────────────────────────────
+  // ── Profile Methods ───────────────────────────────────────────────────────────
   Future<void> _saveProfile() async {
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(
@@ -216,7 +225,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _isSaving = true;
     });
 
-    setState(() => _isSaving = true);
     final profile = UserProfile(
       name: _nameController.text.trim(),
       dateOfBirth: _dateOfBirth!,
@@ -347,7 +355,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void dispose() {
     _nameController.dispose();
     _ttsService.dispose();
-    _bleService.dispose();
+    // ← REMOVED: _bleService.dispose() — we don't own it, HomeScreen does
     super.dispose();
   }
 
@@ -360,19 +368,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Device ──────────────────────────────────
             _buildSectionTitle('AF Monitor Device'),
             const SizedBox(height: 16),
             _buildDeviceSection(),
             const SizedBox(height: 28),
 
-            // ── Profile ──────────────────────────────────
             _buildSectionTitle('Profile'),
             const SizedBox(height: 16),
             _buildProfileSection(),
             const SizedBox(height: 28),
 
-            // ── Medical History ───────────────────────────
             _buildSectionTitle('Medical History'),
             const SizedBox(height: 4),
             Text(
@@ -406,37 +411,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 28),
 
-            // ── Recommendations ───────────────────────────
             _buildSectionTitle('Recommendations'),
             const SizedBox(height: 16),
             _buildRecommendationsSection(),
             const SizedBox(height: 28),
 
-            // ── Export ────────────────────────────────────
             _buildSectionTitle('Export'),
             const SizedBox(height: 16),
             _buildExportSection(),
             const SizedBox(height: 28),
 
-            // ── Appearance ────────────────────────────────
             _buildSectionTitle('Appearance'),
             const SizedBox(height: 16),
             _buildAppearanceSection(),
             const SizedBox(height: 28),
 
-            // ── Reminder ──────────────────────────────────
             _buildSectionTitle('Reminder'),
             const SizedBox(height: 16),
             _buildReminderSection(),
             const SizedBox(height: 28),
 
-            // ── Data ──────────────────────────────────────
             _buildSectionTitle('Data'),
             const SizedBox(height: 16),
             _buildDataSection(),
             const SizedBox(height: 28),
 
-            // ── About ─────────────────────────────────────
             _buildSectionTitle('About'),
             const SizedBox(height: 16),
             _buildAboutSection(),
@@ -447,7 +446,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Section title ────────────────────────────────────────
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
@@ -460,7 +458,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Device section ───────────────────────────────────────
   Widget _buildDeviceSection() {
     final isConnected = _bleService.isConnected;
 
@@ -472,7 +469,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       child: Column(
         children: [
-          // Connection status
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -538,7 +534,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
-          // Status banner
           if (_bleStatus.isNotEmpty) ...[
             const Divider(height: 1),
             Padding(
@@ -567,9 +562,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const Divider(height: 1),
 
-          // Action buttons
           if (!isConnected) ...[
-            // Scan
             ListTile(
               leading: _isScanning
                   ? const SizedBox(
@@ -593,8 +586,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               onTap: _isScanning ? null : _startScan,
             ),
-
-            // Scan results
             if (_scanResults.isNotEmpty) ...[
               const Divider(height: 1, indent: 16),
               ..._scanResults.map((result) {
@@ -650,7 +641,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
 
           if (isConnected) ...[
-            // Sync
             ListTile(
               leading: _isSyncing
                   ? const SizedBox(
@@ -684,8 +674,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: _isSyncing ? null : _syncData,
             ),
             const Divider(height: 1, indent: 16),
-
-            // Clear device storage
             ListTile(
               leading: const Icon(
                 Icons.delete_outline_rounded,
@@ -714,7 +702,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Profile section ──────────────────────────────────────
   Widget _buildProfileSection() {
     final age = _dateOfBirth != null
         ? DateTime.now().year - _dateOfBirth!.year
@@ -743,11 +730,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             controller: _nameController,
             textCapitalization: TextCapitalization.words,
             style: GoogleFonts.inter(fontSize: 15, color: AppTheme.textPrimary),
-
             onChanged: (_) {
               final error = Validators.validateName(_nameController.text);
+              if (error == null && _nameError != null) {
+                setState(() => _nameError = null);
+              }
             },
-
             decoration: InputDecoration(
               hintText: 'Enter your full name',
               prefixIcon: const Icon(Icons.person_outline_rounded),
@@ -755,7 +743,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 20),
-
           Text(
             'Date of Birth',
             style: GoogleFonts.inter(
@@ -804,7 +791,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 20),
-
           Text(
             'Gender',
             style: GoogleFonts.inter(
@@ -854,7 +840,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Medical section ──────────────────────────────────────
   Widget _buildMedicalSection() {
     return Container(
       decoration: BoxDecoration(
@@ -946,7 +931,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Recommendations section ──────────────────────────────
   Widget _buildRecommendationsSection() {
     if (_profile == null) {
       return Container(
@@ -1020,6 +1004,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
+              // ← ADDED: "Read all" button
+              TtsButton(
+                onSpeak: () =>
+                    _ttsService.speakRecommendations(recommendations),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -1060,6 +1049,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  // ← ADDED: per-item TTS button
+                  TtsButton(
+                    size: 18,
+                    onSpeak: () => _ttsService.speakSingleRecommendation(
+                      e.key + 1,
+                      e.value,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1069,7 +1067,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── PDF Export section ───────────────────────────────────────
   Widget _buildExportSection() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1107,11 +1104,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: _profile == null || _measurements.isEmpty
                   ? null
                   : () async {
-                      // ← CHANGED: exportReport instead of generateReport
-                      // exportReport shows password dialog, adds watermark,
-                      // encrypts with AES-256, then shares the secured PDF
                       await PdfService.exportReport(
-                        context: context, // ← needed for the dialog
+                        context: context,
                         profile: _profile!,
                         measurements: _measurements,
                       );
@@ -1138,7 +1132,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Appearance section ───────────────────────────────────
   Widget _buildAppearanceSection() {
     return Container(
       decoration: BoxDecoration(
@@ -1174,8 +1167,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
-
-          // Font size
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -1254,7 +1245,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Reminder section ─────────────────────────────────────
   Widget _buildReminderSection() {
     final formattedTime = TimeOfDay(
       hour: _settings.reminderHour,
@@ -1325,7 +1315,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Data section ─────────────────────────────────────────
   Widget _buildDataSection() {
     return Container(
       decoration: BoxDecoration(
@@ -1359,7 +1348,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── About section ────────────────────────────────────────
   Widget _buildAboutSection() {
     return Container(
       decoration: BoxDecoration(

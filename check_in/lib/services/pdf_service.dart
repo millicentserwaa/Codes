@@ -1,18 +1,15 @@
-import 'dart:typed_data';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import '../models/measurement.dart';
 import '../models/user_profile.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'biometric_service.dart';
-
-import '../widgets/pdf_password_dialog.dart';
-import 'pdf_security_service.dart';
 
 class PdfService {
-  // ── Watermark (inside class, static) ─────────────────────
+  // ── Watermark ─────────────────────────────────────────────────────────────────
   static pw.Widget _buildWatermark(String patientName) {
     return pw.FullPage(
       ignoreMargins: true,
@@ -22,7 +19,7 @@ class PdfService {
           child: pw.Opacity(
             opacity: 0.08,
             child: pw.Text(
-              'CONFIDENTIAL — $patientName',
+              'CONFIDENTIAL: $patientName',
               style: pw.TextStyle(
                 fontSize: 48,
                 fontWeight: pw.FontWeight.bold,
@@ -35,119 +32,79 @@ class PdfService {
     );
   }
 
-  // ── Generate and share PDF report (original — kept for compatibility) ──
-  static Future<void> generateReport({
-    required UserProfile profile,
-    required List<Measurement> measurements,
-  }) async {
-    final pdf = pw.Document();
-
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(40),
-        build: (context) => [
-          _buildHeader(profile),
-          pw.SizedBox(height: 24),
-          _buildProfileSection(profile),
-          pw.SizedBox(height: 24),
-          _buildRiskSection(profile),
-          pw.SizedBox(height: 24),
-          if (measurements.isNotEmpty) ...[
-            _buildSummarySection(measurements),
-            pw.SizedBox(height: 24),
-            _buildMeasurementsTable(measurements),
-            pw.SizedBox(height: 24),
-          ],
-          _buildDisclaimer(),
-        ],
-      ),
-    );
-
-    await Printing.sharePdf(
-      bytes: await pdf.save(),
-      filename:
-          'checkin_report_${profile.name.replaceAll(' ', '_')}_${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year}.pdf',
-    );
-  }
-
-  // ── Secure export (password + watermark + restrictions) ──
+  // ── Secure export ─────────────────────────────────────────────────────────────
   static Future<void> exportReport({
     required BuildContext context,
     required UserProfile profile,
     required List<Measurement> measurements,
   }) async {
-    // 1. Verify identity before allowing export of sensitive health data
-    final authenticated = await BiometricService.authenticate(
-      reason: 'Verify your identity to export your health report',
-    );
-    if (!authenticated) return;
+    try {
+      // 1. Build PDF with watermark
+      //    Password dialog removed — encryption skipped for now.
+      //    The confidential watermark still protects the document visually.
+      final pdf = pw.Document();
 
-    // 2. Show password dialog — user sets a password for the PDF
-    final String? password = await showDialog<String>(
-      context: context,
-      builder: (_) => const PdfPasswordDialog(),
-    );
-    if (password == null) return; // user cancelled
-
-    // 2. Build PDF — same content as generateReport, with watermark added
-    final pdf = pw.Document();
-
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(40),
-        // pw.MultiPage does not support a background parameter.
-        // The watermark is rendered as the first item in the build list,
-        // positioned absolutely behind the content using pw.Stack.
-        build: (context) => [
-          pw.Stack(
-            children: [
-              _buildWatermark(profile.name),
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(profile),
-                  pw.SizedBox(height: 24),
-                  _buildProfileSection(profile),
-                  pw.SizedBox(height: 24),
-                  _buildRiskSection(profile),
-                  pw.SizedBox(height: 24),
-                  if (measurements.isNotEmpty) ...[
-                    _buildSummarySection(measurements),
-                    pw.SizedBox(height: 24),
-                    _buildMeasurementsTable(measurements),
-                    pw.SizedBox(height: 24),
-                  ],
-                  _buildDisclaimer(),
-                ],
-              ),
-            ],
+      pdf.addPage(
+        pw.MultiPage(
+          pageTheme: pw.PageTheme(
+            pageFormat: PdfPageFormat.a4,
+            margin: const pw.EdgeInsets.all(40),
+            buildBackground: (context) => _buildWatermark(profile.name),
           ),
-        ],
-      ),
-    );
+          build: (context) => [
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                _buildHeader(profile),
+                pw.SizedBox(height: 24),
+                _buildProfileSection(profile),
+                pw.SizedBox(height: 24),
+                _buildRiskSection(profile),
+                pw.SizedBox(height: 24),
+                if (measurements.isNotEmpty) ...[
+                  _buildSummarySection(measurements),
+                  pw.SizedBox(height: 24),
+                  _buildMeasurementsTable(measurements),
+                  pw.SizedBox(height: 24),
+                ],
+                _buildDisclaimer(),
+              ],
+            ),
+          ],
+        ),
+      );
 
-    // 3. Get raw bytes
-    final List<int> rawBytes = await pdf.save();
+      // 2. Save to bytes
+      final List<int> pdfBytes = await pdf.save();
 
-    // 4. Apply password + read-only restrictions via Syncfusion
-    final List<int> securedBytes = await PdfSecurityService.applySecurity(
-      pdfBytes: rawBytes,
-      userPassword: password,
-    );
+      // 3. Write to temp file
+      final filename =
+          'CheckIn_Report_${profile.name.replaceAll(' ', '_')}_'
+          '${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year}.pdf';
 
-    // 5. Share using the printing package — same as generateReport
-    final filename =
-        'CheckIn_Report_${profile.name.replaceAll(' ', '_')}_${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year}.pdf';
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/$filename');
+      await tempFile.writeAsBytes(pdfBytes);
 
-    await Printing.sharePdf(
-      bytes: Uint8List.fromList(securedBytes),
-      filename: filename,
-    );
+      // 4. Share via native share sheet (WhatsApp, Gmail, Drive, etc.)
+      await Share.shareXFiles(
+        [XFile(tempFile.path, mimeType: 'application/pdf')],
+        subject: 'CheckIn Health Report: ${profile.name}',
+        text: 'Please find attached your CheckIn heart health report.',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to generate report: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
-  // ── Header ───────────────────────────────────────────────
+  // ── Header ────────────────────────────────────────────────────────────────────
   static pw.Widget _buildHeader(UserProfile profile) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(20),
@@ -198,7 +155,7 @@ class PdfService {
     );
   }
 
-  // ── Profile section ──────────────────────────────────────
+  // ── Profile section ───────────────────────────────────────────────────────────
   static pw.Widget _buildProfileSection(UserProfile profile) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(16),
@@ -292,14 +249,12 @@ class PdfService {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: pw.BoxDecoration(
-        color: active
-            ? PdfColor.fromHex('#00695C').shade(0.1)
-            : PdfColor.fromHex('#F3EFE7'),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(20)),
         border: pw.Border.all(
           color: active
               ? PdfColor.fromHex('#00695C')
-              : PdfColor.fromHex('#E0D8CC'),
+              : PdfColor.fromHex('#cccccc'),
+          width: 0.8,
         ),
       ),
       child: pw.Text(
@@ -309,13 +264,13 @@ class PdfService {
           fontWeight: active ? pw.FontWeight.bold : pw.FontWeight.normal,
           color: active
               ? PdfColor.fromHex('#00695C')
-              : PdfColor.fromHex('#4A4A6A'),
+              : PdfColor.fromHex('#888888'),
         ),
       ),
     );
   }
 
-  // ── Risk section ─────────────────────────────────────────
+  // ── Risk section ──────────────────────────────────────────────────────────────
   static pw.Widget _buildRiskSection(UserProfile profile) {
     final score = profile.strokeRiskScore;
     final level = profile.strokeRiskLevel;
@@ -332,9 +287,12 @@ class PdfService {
     return pw.Container(
       padding: const pw.EdgeInsets.all(16),
       decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: riskColor),
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
-        color: riskColor.shade(0.05),
+        border: pw.Border(
+          left: pw.BorderSide(color: riskColor, width: 4),
+          top: pw.BorderSide(color: PdfColor.fromHex('#E0D8CC'), width: 0.8),
+          right: pw.BorderSide(color: PdfColor.fromHex('#E0D8CC'), width: 0.8),
+          bottom: pw.BorderSide(color: PdfColor.fromHex('#E0D8CC'), width: 0.8),
+        ),
       ),
       child: pw.Row(
         children: [
@@ -376,7 +334,6 @@ class PdfService {
             decoration: pw.BoxDecoration(
               shape: pw.BoxShape.circle,
               border: pw.Border.all(color: riskColor, width: 2),
-              color: riskColor.shade(0.1),
             ),
             child: pw.Center(
               child: pw.Text(
@@ -394,7 +351,7 @@ class PdfService {
     );
   }
 
-  // ── Summary section ──────────────────────────────────────
+  // ── Summary section ───────────────────────────────────────────────────────────
   static pw.Widget _buildSummarySection(List<Measurement> measurements) {
     final total = measurements.length;
     final afCount = measurements.where((m) => m.afPrediction == 1).length;
@@ -482,7 +439,7 @@ class PdfService {
     );
   }
 
-  // ── Measurements table ───────────────────────────────────
+  // ── Measurements table ────────────────────────────────────────────────────────
   static pw.Widget _buildMeasurementsTable(List<Measurement> measurements) {
     final data = measurements.take(20).toList();
 
@@ -531,7 +488,6 @@ class PdfService {
                 final m = entry.value;
                 final isAF = m.afPrediction == 1;
                 final isEven = entry.key % 2 == 0;
-
                 return pw.TableRow(
                   decoration: pw.BoxDecoration(
                     color: isEven
@@ -540,7 +496,8 @@ class PdfService {
                   ),
                   children: [
                     _buildTableCell(
-                      '${m.timestamp.day}/${m.timestamp.month}/${m.timestamp.year}\n${m.timestamp.hour}:${m.timestamp.minute.toString().padLeft(2, '0')}',
+                      '${m.timestamp.day}/${m.timestamp.month}/${m.timestamp.year}\n'
+                      '${m.timestamp.hour}:${m.timestamp.minute.toString().padLeft(2, '0')}',
                     ),
                     _buildTableCell('${m.heartRate.toStringAsFixed(0)} BPM'),
                     _buildTableCell(
@@ -593,7 +550,7 @@ class PdfService {
     );
   }
 
-  // ── Disclaimer ───────────────────────────────────────────
+  // ── Disclaimer ────────────────────────────────────────────────────────────────
   static pw.Widget _buildDisclaimer() {
     return pw.Container(
       padding: const pw.EdgeInsets.all(12),

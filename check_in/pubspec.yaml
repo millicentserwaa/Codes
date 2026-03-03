@@ -30,14 +30,13 @@ dependencies:
   uuid: ^4.4.2
 
   #TTS 
-  #flutter_tts: ^4.0.2
+  flutter_tts: ^4.0.2
 
   pdf: ^3.10.8
   printing: ^5.12.0
-  #path_provider: ^2.1.2
   
-  #Authentication
-  local_auth: ^2.3.0
+  share_plus: ^7.2.2
+  path_provider: ^2.1.2
 
   #Handles password and permissions
   syncfusion_flutter_pdf: ^25.1.35
