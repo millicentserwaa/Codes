@@ -1,3 +1,5 @@
+
+
 import 'package:hive_flutter/hive_flutter.dart';
 
 part 'user_profile.g.dart';
@@ -11,7 +13,7 @@ class UserProfile extends HiveObject {
   final DateTime dateOfBirth;
 
   @HiveField(2)
-  final String gender; // "Male" or "Female"
+  final String gender; 
 
   @HiveField(3)
   final bool hasHypertension;
@@ -50,7 +52,10 @@ class UserProfile extends HiveObject {
     return age;
   }
 
+  // Birmingham Risk of Stroke in Atrial Fibrillation (CHA2DS2-VASc) Score Calculator
   // CHA2DS2-VASc Score Calculation
+  //Ref: Lip GY, Nieuwlaat R, et al. Refining clinical risk stratification for predicting stroke and thromboembolism in atrial fibrillation using a novel risk factor-based approach: the euro heart survey on atrial fibrillation. Chest. 2010;137(2):263–272. doi:10.1378/chest.09-1584
+
   int get strokeRiskScore {
     int score = 0;
 
@@ -68,7 +73,7 @@ class UserProfile extends HiveObject {
     // Diabetes
     if (hasDiabetes) score += 1;
 
-    // Prior stroke/TIA (counts double)
+    // Prior stroke/TIA 
     if (hasPriorStroke) score += 2;
 
     // Vascular disease

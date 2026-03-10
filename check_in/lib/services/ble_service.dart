@@ -13,6 +13,8 @@ class BleService {
   BluetoothCharacteristic? _readChar;
   BluetoothCharacteristic? _controlChar;
 
+  StreamSubscription? _connectionStateSubscription;
+
   final HiveService _hiveService = HiveService();
 
   // Stream controllers
@@ -29,10 +31,10 @@ class BleService {
 
   bool get isConnected => _connectedDevice != null;
 
-  // ── Scan for AF_Monitor ──────────────────────────────────
+  // Scan for AF_Monitor
   Stream<List<ScanResult>> scanForDevice() {
     FlutterBluePlus.startScan(
-      timeout: const Duration(seconds: 10),
+      timeout: const Duration(seconds: 30),
       withNames: ['AF_Monitor'],
     );
     return FlutterBluePlus.scanResults;
@@ -42,15 +44,16 @@ class BleService {
     FlutterBluePlus.stopScan();
   }
 
-  // ── Connect to device ────────────────────────────────────
+  // Connect to device and discover characteristics
   Future<bool> connectToDevice(BluetoothDevice device) async {
     try {
       _statusController.add('Connecting...');
-      await device.connect(timeout: const Duration(seconds: 10));
+      await device.connect(timeout: const Duration(seconds: 30));
       _connectedDevice = device;
 
-      // Listen for disconnection
-      device.connectionState.listen((state) {
+
+      _connectionStateSubscription?.cancel();
+      _connectionStateSubscription = device.connectionState.listen((state) {
         if (state == BluetoothConnectionState.disconnected) {
           _connectedDevice = null;
           _readChar = null;
@@ -114,8 +117,8 @@ class BleService {
       if (parts.length == 4) {
         try {
           final measurement = Measurement.fromBLE(raw);
-          final key = measurement.timestamp.millisecondsSinceEpoch.toString();
-          if (!_hiveService.measurementBox.containsKey(key)) {
+          final deviceTimestamp = parts[0].trim();
+          if (!_hiveService.measurementBox.containsKey(deviceTimestamp)) {
             await _hiveService.saveMeasurement(measurement);
             received.add(measurement);
             _measurementController.add(measurement);
@@ -192,6 +195,8 @@ class BleService {
   // Disconnect
   Future<void> disconnect() async {
     await _connectedDevice?.disconnect();
+    _connectionStateSubscription?.cancel();
+    _connectionStateSubscription = null;
     _connectedDevice = null;
     _readChar = null;
     _controlChar = null;
@@ -200,6 +205,7 @@ class BleService {
   }
 
   void dispose() {
+    _connectionStateSubscription?.cancel();
     _connectionController.close();
     _statusController.close();
     _measurementController.close();

@@ -4,6 +4,7 @@ import '../models/measurement.dart';
 import '../models/user_profile.dart';
 import '../services/hive_service.dart';
 import '../services/ble_service.dart';
+import '../services/risk_service.dart';
 import '../theme/app_theme.dart';
 import 'history_screen.dart';
 import 'risk_screen.dart';
@@ -51,10 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
@@ -133,8 +131,8 @@ class _DashboardTabState extends State<_DashboardTab> {
     final greeting = hour < 12
         ? 'Good morning'
         : hour < 17
-            ? 'Good afternoon'
-            : 'Good evening';
+        ? 'Good afternoon'
+        : 'Good evening';
     final name = _profile?.name.split(' ').first ?? 'there';
 
     return Scaffold(
@@ -176,16 +174,27 @@ class _DashboardTabState extends State<_DashboardTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 1. Latest reading
               _buildLatestCard(),
               const SizedBox(height: 20),
+
+              // 2. Stroke risk card (only if profile exists)
               if (_profile != null) ...[
                 _buildRiskCard(),
                 const SizedBox(height: 20),
+
+                // 3. Urgency card — below stroke risk, above stats
+                _buildUrgencyCard(),
+                const SizedBox(height: 20),
               ],
+
+              // 4. Stats row (2x2 grid including monitoring consistency)
               if (_measurements.isNotEmpty) ...[
                 _buildStatsRow(),
                 const SizedBox(height: 20),
               ],
+
+              // 5. No data prompt
               if (_latest == null) _buildNoDataCard(),
             ],
           ),
@@ -194,8 +203,7 @@ class _DashboardTabState extends State<_DashboardTab> {
     );
   }
 
-  
-
+  // ── Latest Reading Card ───────────────────────────────────────────────────
   Widget _buildLatestCard() {
     if (_latest == null) {
       return Container(
@@ -245,10 +253,7 @@ class _DashboardTabState extends State<_DashboardTab> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            color.withOpacity(0.15),
-            color.withOpacity(0.05),
-          ],
+          colors: [color.withOpacity(0.15), color.withOpacity(0.05)],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withOpacity(0.3)),
@@ -309,7 +314,9 @@ class _DashboardTabState extends State<_DashboardTab> {
                   const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 5),
+                      horizontal: 12,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: color.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(20),
@@ -367,6 +374,7 @@ class _DashboardTabState extends State<_DashboardTab> {
     );
   }
 
+  // ── Stroke Risk Card ──────────────────────────────────────────────────────
   Widget _buildRiskCard() {
     final riskLevel = _profile!.strokeRiskLevel;
     final riskScore = _profile!.strokeRiskScore;
@@ -439,44 +447,148 @@ class _DashboardTabState extends State<_DashboardTab> {
     );
   }
 
+  // ── Urgency Card ──────────────────────────────────────────────────────────
+  Widget _buildUrgencyCard() {
+    final urgency = RiskService.getUrgencyLevel(_profile!, _measurements);
+    final message = RiskService.getUrgencyMessage(_profile!, _measurements);
+
+    Color color;
+    IconData icon;
+    switch (urgency) {
+      case 'High':
+        color = AppTheme.danger;
+        icon = Icons.emergency_rounded;
+        break;
+      case 'Moderate':
+        color = AppTheme.warning;
+        icon = Icons.warning_amber_rounded;
+        break;
+      default:
+        color = AppTheme.success;
+        icon = Icons.check_circle_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$urgency Urgency',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppTheme.textPrimary,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Stats Row (2x2 grid with monitoring consistency) ──────────────────────
   Widget _buildStatsRow() {
     final total = _measurements.length;
     final afCount = _measurements.where((m) => m.afPrediction == 1).length;
     final avgHR =
         _measurements.map((m) => m.heartRate).reduce((a, b) => a + b) / total;
+    final consistency = RiskService.getMonitoringConsistency(_measurements);
 
-    return Row(
+    Color consistencyColor;
+    switch (consistency) {
+      case 'Excellent':
+        consistencyColor = AppTheme.success;
+        break;
+      case 'Good':
+        consistencyColor = AppTheme.primary;
+        break;
+      case 'Fair':
+        consistencyColor = AppTheme.warning;
+        break;
+      default:
+        consistencyColor = AppTheme.danger;
+    }
+
+    return Column(
       children: [
-        Expanded(
-          child: _buildStatCard(
-            label: 'Total Readings',
-            value: '$total',
-            icon: Icons.list_alt_rounded,
-            color: AppTheme.primary,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                label: 'Total Readings',
+                value: '$total',
+                icon: Icons.list_alt_rounded,
+                color: AppTheme.primary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCard(
+                label: 'Avg Heart Rate',
+                value: '${avgHR.toStringAsFixed(0)} BPM',
+                icon: Icons.favorite_rounded,
+                color: AppTheme.danger,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            label: 'Avg Heart Rate',
-            value: '${avgHR.toStringAsFixed(0)} BPM',
-            icon: Icons.favorite_rounded,
-            color: AppTheme.danger,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            label: 'AF Events',
-            value: '$afCount',
-            icon: Icons.warning_amber_rounded,
-            color: afCount > 0 ? AppTheme.danger : AppTheme.success,
-          ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                label: 'AF Events',
+                value: '$afCount',
+                icon: Icons.warning_amber_rounded,
+                color: afCount > 0 ? AppTheme.danger : AppTheme.success,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCard(
+                label: 'Monitoring',
+                value: consistency,
+                icon: Icons.calendar_today_rounded,
+                color: consistencyColor,
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
+  // ── Stat Card ─────────────────────────────────────────────────────────────
   Widget _buildStatCard({
     required String label,
     required String value,
@@ -515,6 +627,7 @@ class _DashboardTabState extends State<_DashboardTab> {
     );
   }
 
+  // ── No Data Card ──────────────────────────────────────────────────────────
   Widget _buildNoDataCard() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -525,8 +638,11 @@ class _DashboardTabState extends State<_DashboardTab> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline_rounded,
-              color: AppTheme.primary, size: 18),
+          const Icon(
+            Icons.info_outline_rounded,
+            color: AppTheme.primary,
+            size: 18,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -543,6 +659,7 @@ class _DashboardTabState extends State<_DashboardTab> {
     );
   }
 
+  // ── Timestamp formatter ───────────────────────────────────────────────────
   String _formatTimestamp(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);

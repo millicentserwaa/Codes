@@ -8,7 +8,7 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include <math.h>
-#include "af_detection_v5.h"   
+#include "af_detection_esp32.h"   
 
 Preferences preferences;
 
@@ -251,14 +251,6 @@ void calculateFeatures(int* rr_intervals, int count, float* features) {
   features[6] = tpr;
 }
 
-// UPDATED CLASSIFIER 
-// int predictAF(float* features, int* confidence) {
-//   Eloquent::ML::Port::RandomForest clf;
-//   int prediction = clf.predict(features);
-
-//   // Confidence based on validated model accuracy
-//   *confidence = (prediction == 1) ? 92 : 84;
-
 //   // Debug output
 //   Serial.print("  mean_rr : "); Serial.print(features[0], 2); Serial.println(" ms");
 //   Serial.print("  pRR20   : "); Serial.print(features[1], 1); Serial.println("%");
@@ -277,13 +269,12 @@ void calculateFeatures(int* rr_intervals, int count, float* features) {
 int predictAF(float* features, int* confidence) {
   Eloquent::ML::Port::RandomForest clf;
   
-  // Get the raw vote counts from all 7 trees
+  // Get the raw vote counts from all 3 trees
   uint8_t votes[2] = {0};
   int prediction = clf.predictWithVotes(features, votes);
   
   // Confidence = winning votes / total trees × 100
-  // e.g. 5/7 trees → 71%, 7/7 trees → 100%
-  *confidence = (int)((float)votes[prediction] / 7.0f * 100.0f);
+  *confidence = (int)((float)votes[prediction] / 3.0f * 100.0f);
 
   Serial.print("  Votes    : Normal="); Serial.print(votes[0]);
   Serial.print(" | AF=");              Serial.print(votes[1]);
@@ -425,7 +416,7 @@ void setup() {
 
   preferences.begin("af-storage", false);
   int storedCount = preferences.getInt("count", 0);
-  Serial.print("Stored readings: "); Serial.println(storedCount);
+  Serial.print("Stored readings: "); Seriwordal.println(storedCount);
   printStoredReadings();
 
   Serial.println("Initialising BLE ");

@@ -9,7 +9,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 class PdfService {
-  // ── Watermark ─────────────────────────────────────────────────────────────────
+  // Watermark with patient name for confidentiality — visible on the PDF but not encrypted.
   static pw.Widget _buildWatermark(String patientName) {
     return pw.FullPage(
       ignoreMargins: true,
@@ -17,11 +17,11 @@ class PdfService {
         child: pw.Transform.rotate(
           angle: -pi / 4,
           child: pw.Opacity(
-            opacity: 0.08,
+            opacity: 0.06,
             child: pw.Text(
               'CONFIDENTIAL: $patientName',
               style: pw.TextStyle(
-                fontSize: 48,
+                fontSize: 58,
                 fontWeight: pw.FontWeight.bold,
                 color: PdfColors.red,
               ),
@@ -32,16 +32,14 @@ class PdfService {
     );
   }
 
-  // ── Secure export ─────────────────────────────────────────────────────────────
+  // Secure export
   static Future<void> exportReport({
     required BuildContext context,
     required UserProfile profile,
     required List<Measurement> measurements,
   }) async {
     try {
-      // 1. Build PDF with watermark
-      //    Password dialog removed — encryption skipped for now.
-      //    The confidential watermark still protects the document visually.
+      // 1. Generate PDF
       final pdf = pw.Document();
 
       pdf.addPage(
@@ -49,7 +47,7 @@ class PdfService {
           pageTheme: pw.PageTheme(
             pageFormat: PdfPageFormat.a4,
             margin: const pw.EdgeInsets.all(40),
-            buildBackground: (context) => _buildWatermark(profile.name),
+            buildForeground: (context) => _buildWatermark(profile.name),
           ),
           build: (context) => [
             pw.Column(

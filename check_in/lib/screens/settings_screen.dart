@@ -703,9 +703,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildProfileSection() {
-    final age = _dateOfBirth != null
-        ? DateTime.now().year - _dateOfBirth!.year
-        : null;
+    int _calculateAge(DateTime dob) {
+      final now = DateTime.now();
+      int age = now.year - dob.year;
+      if (now.month < dob.month ||
+          (now.month == dob.month && now.day < dob.day)) {
+        age--;
+      }
+      return age;
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -772,7 +778,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Expanded(
                     child: Text(
                       _dateOfBirth != null
-                          ? '${_dateOfBirth!.day}/${_dateOfBirth!.month}/${_dateOfBirth!.year}  •  Age $age'
+                          ? '${_dateOfBirth!.day}/${_dateOfBirth!.month}/${_dateOfBirth!.year}  •  Age ${_calculateAge(_dateOfBirth!)}'
                           : 'Select your date of birth',
                       style: GoogleFonts.inter(
                         fontSize: 15,

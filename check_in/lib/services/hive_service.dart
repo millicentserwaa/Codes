@@ -9,7 +9,7 @@ class HiveService {
   static const String userProfileBoxName = 'user_profile';
   static const String appSettingsBoxName = 'app_settings';
 
-  // ── Initialize ───────────────────────────────────────────
+  // Initialize Hive and open boxes with encryption
   static Future<void> init() async {
     await Hive.initFlutter();
     Hive.registerAdapter(MeasurementAdapter());
@@ -35,16 +35,13 @@ class HiveService {
     );
   }
 
-  // ── Everything below is unchanged ────────────────────────
-
   // ── Measurement Box ──────────────────────────────────────
   Box<Measurement> get measurementBox =>
       Hive.box<Measurement>(measurementBoxName);
 
-  Future<void> saveMeasurement(Measurement measurement) async {
-    // Use timestamp as key to prevent duplicates on re-sync
-    final key = measurement.timestamp.millisecondsSinceEpoch.toString();
-    await measurementBox.put(key, measurement);
+  Future<void> saveMeasurement(Measurement measurement, {String? key}) async {
+    final k = key ?? measurement.timestamp.millisecondsSinceEpoch.toString();
+    await measurementBox.put(k, measurement);
   }
 
   List<Measurement> getAllMeasurements() {

@@ -3,35 +3,24 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/pin_service.dart';
 import '../theme/app_theme.dart';
 
-/// Shown during onboarding so the user can create their 4-digit PIN.
-/// Two-step: enter PIN → confirm PIN → save.
-///
-/// Usage: add this as a step in your onboarding flow, or navigate to it
-/// directly from settings when the user wants to change their PIN.
-///
-/// After successful setup, navigates to [onSuccess] route (default: '/home').
 class PinSetupScreen extends StatefulWidget {
   /// Route to push after PIN is successfully created.
   final String onSuccessRoute;
 
-  const PinSetupScreen({
-    super.key,
-    this.onSuccessRoute = '/home',
-  });
+  const PinSetupScreen({super.key, this.onSuccessRoute = '/home'});
 
   @override
   State<PinSetupScreen> createState() => _PinSetupScreenState();
 }
 
 class _PinSetupScreenState extends State<PinSetupScreen> {
-  // ── State ────────────────────────────────────────────────────────────────────
+  // ── State ─────────────────────────────────────────────────────────────────
   String _pin = '';
   String _confirmPin = '';
-  bool _isConfirming = false; // false = entering, true = confirming
+  bool _isConfirming = false;
   String? _errorMessage;
 
-  // ── PIN entry logic ──────────────────────────────────────────────────────────
-
+  // ── PIN entry logic ───────────────────────────────────────────────────────
   void _onDigitPressed(String digit) {
     setState(() {
       _errorMessage = null;
@@ -57,7 +46,6 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
   }
 
   void _moveToConfirm() {
-    // Small delay so user sees the 4th dot fill before screen changes
     Future.delayed(const Duration(milliseconds: 200), () {
       if (!mounted) return;
       setState(() => _isConfirming = true);
@@ -82,7 +70,7 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
     }
   }
 
-  // ── UI ────────────────────────────────────────────────────────────────────────
+  // ── UI ────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final currentPin = _isConfirming ? _confirmPin : _pin;
@@ -92,7 +80,6 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        // Allow going back during confirm step (restarts from entry)
         leading: _isConfirming
             ? IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.black87),
@@ -106,9 +93,13 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
             : null,
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
+          // SingleChildScrollView is direct child of SafeArea — no Padding wrapper
+          // This prevents overflow on small screens
+          physics: const ClampingScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 32),
 
@@ -126,7 +117,6 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
                   color: AppTheme.primary,
                 ),
               ),
-
               const SizedBox(height: 24),
 
               // Title
@@ -138,7 +128,6 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
                   color: Colors.black87,
                 ),
               ),
-
               const SizedBox(height: 8),
 
               // Subtitle
@@ -147,41 +136,34 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
                     ? 'Enter your PIN again to confirm'
                     : 'Choose a 4-digit PIN to protect your health data',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
+                style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[600]),
               ),
-
               const SizedBox(height: 48),
 
               // PIN dots
               _PinDots(filledCount: currentPin.length),
-
               const SizedBox(height: 16),
 
-              // Error message
-              AnimatedOpacity(
-                opacity: _errorMessage != null ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
-                child: Text(
-                  _errorMessage ?? '',
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: Colors.red[600],
+              // Error message — fixed height so layout doesn't jump
+              SizedBox(
+                height: 20,
+                child: AnimatedOpacity(
+                  opacity: _errorMessage != null ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Text(
+                    _errorMessage ?? '',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: Colors.red[600],
+                    ),
                   ),
                 ),
               ),
-
-              const Spacer(),
+              const SizedBox(height: 40),
 
               // Number pad
-              _NumberPad(
-                onDigit: _onDigitPressed,
-                onBackspace: _onBackspace,
-              ),
-
-              const SizedBox(height: 32),
+              _NumberPad(onDigit: _onDigitPressed, onBackspace: _onBackspace),
+              const SizedBox(height: 40),
             ],
           ),
         ),
@@ -190,9 +172,7 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
   }
 }
 
-// ── Shared widgets ────────────────────────────────────────────────────────────
-
-/// 4 dots showing how many digits have been entered
+// ── PIN Dots ──────────────────────────────────────────────────────────────────
 class _PinDots extends StatelessWidget {
   final int filledCount;
   const _PinDots({required this.filledCount});
@@ -222,7 +202,7 @@ class _PinDots extends StatelessWidget {
   }
 }
 
-/// Standard number pad: 1-9, backspace, 0
+// ── Number Pad ────────────────────────────────────────────────────────────────
 class _NumberPad extends StatelessWidget {
   final void Function(String digit) onDigit;
   final VoidCallback onBackspace;
@@ -242,7 +222,7 @@ class _NumberPad extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(width: 88), // empty space where * would be
+            const SizedBox(width: 88),
             const SizedBox(width: 12),
             _DigitButton(label: '0', onTap: () => onDigit('0')),
             const SizedBox(width: 12),
@@ -266,6 +246,7 @@ class _NumberPad extends StatelessWidget {
   }
 }
 
+// ── Digit Button ──────────────────────────────────────────────────────────────
 class _DigitButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
@@ -296,6 +277,7 @@ class _DigitButton extends StatelessWidget {
   }
 }
 
+// ── Backspace Button ──────────────────────────────────────────────────────────
 class _BackspaceButton extends StatelessWidget {
   final VoidCallback onTap;
   const _BackspaceButton({required this.onTap});
@@ -309,7 +291,11 @@ class _BackspaceButton extends StatelessWidget {
         height: 76,
         decoration: const BoxDecoration(shape: BoxShape.circle),
         alignment: Alignment.center,
-        child: const Icon(Icons.backspace_outlined, size: 26, color: Colors.black54),
+        child: const Icon(
+          Icons.backspace_outlined,
+          size: 26,
+          color: Colors.black54,
+        ),
       ),
     );
   }
