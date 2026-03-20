@@ -411,6 +411,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 28),
 
+            _buildSectionTitle('Recommendations'),
+            const SizedBox(height: 16),
+            _buildRecommendationsSection(),
+            const SizedBox(height: 28),
+
             _buildSectionTitle('Export'),
             const SizedBox(height: 16),
             _buildExportSection(),
@@ -929,6 +934,142 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         if (!isLast) const Divider(height: 1, indent: 16, endIndent: 16),
       ],
+    );
+  }
+
+  Widget _buildRecommendationsSection() {
+    if (_profile == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.divider),
+        ),
+        child: Text(
+          'Complete your profile above to see personalised recommendations.',
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: AppTheme.textSecondary,
+            height: 1.5,
+          ),
+        ),
+      );
+    }
+
+    final recommendations = RiskService.getRecommendations(
+      _profile!,
+      _measurements,
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.lightbulb_outline_rounded,
+                  color: AppTheme.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your Recommendations',
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'Based on your profile and measurements',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // ← ADDED: "Read all" button
+              TtsButton(
+                onSpeak: () =>
+                    _ttsService.speakRecommendations(recommendations),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 16),
+          ...recommendations.asMap().entries.map(
+            (e) => Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${e.key + 1}',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      e.value,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                        height: 1.6,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // ← ADDED: per-item TTS button
+                  TtsButton(
+                    size: 18,
+                    onSpeak: () => _ttsService.speakSingleRecommendation(
+                      e.key + 1,
+                      e.value,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
